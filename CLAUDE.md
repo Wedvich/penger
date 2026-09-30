@@ -18,14 +18,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Authentication
 
-The YNAB API token is cached in `.env` as `YNAB_ACCESS_TOKEN` (gitignored). To get the token:
+The YNAB API token is cached in the macOS login keychain (service `ynab-access-token`), never on disk.
 
-1. Read from `.env` first — if `YNAB_ACCESS_TOKEN` is set, use it directly.
-2. If missing or empty, fetch from 1Password and write it to `.env`:
-   ```sh
-   YNAB_ACCESS_TOKEN=$(op item get "YNAB" --account my.1password.com --fields "claude token" --reveal)
-   echo "YNAB_ACCESS_TOKEN=$YNAB_ACCESS_TOKEN" > .env
-   ```
+Always read it inline inside the command that uses it, so it never gets printed to output:
+
+```sh
+curl -s -H "Authorization: Bearer $(security find-generic-password -s ynab-access-token -w)" \
+  https://api.ynab.com/v1/budgets
+```
+
+Never run `security find-generic-password ... -w` on its own — that prints the token.
+
+If the keychain item is missing, ask the user to add it (interactive prompt, so the token stays out of shell history and process args):
+
+```sh
+security add-generic-password -a "$USER" -s ynab-access-token -w
+```
+
+The source of truth is 1Password: item "YNAB", field "claude token" (`op item get "YNAB" --account my.1password.com --fields "claude token" --reveal`).
 
 ## Safety
 
